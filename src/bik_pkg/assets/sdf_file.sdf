@@ -1,0 +1,746 @@
+<sdf version="1.11">
+  <model name="fer">
+    <link name="base">
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>1.0000000000000001e-05</mass>
+        <inertia>
+          <ixx>1.0000000000000001e-05</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>1.0000000000000001e-05</iyy>
+          <iyz>0</iyz>
+          <izz>1.0000000000000001e-05</izz>
+        </inertia>
+      </inertial>
+    </link>
+    <joint name="fer_base_joint" type="revolute">
+      <pose relative_to="base">0 0 0 0 0 0</pose>
+      <parent>base</parent>
+      <child>fer_link0</child>
+      <axis>
+        <limit>
+          <lower>0</lower>
+          <upper>0</upper>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <xyz>0 0 1</xyz>
+      </axis>
+      <physics>
+        <ode>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.20000000000000001</erp>
+          </limit>
+        </ode>
+      </physics>
+    </joint>
+    <link name="fer_link0">
+      <pose relative_to="fer_base_joint">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>-0.0172 0.00040000000000000002 0.074499999999999997 0 0 0</pose>
+        <mass>2.3965999999999998</mass>
+        <inertia>
+          <ixx>0.0089999999999999993</ixx>
+          <ixy>0</ixy>
+          <ixz>0.002</ixz>
+          <iyy>0.0115</iyy>
+          <iyz>0</iyz>
+          <izz>0.0085000000000000006</izz>
+        </inertia>
+      </inertial>
+      <collision name="fer_link0_collision_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/collision/link0.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="fer_link0_visual_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/visual/link0.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="fer_joint1" type="revolute">
+      <pose relative_to="fer_link0">0 0 0.33300000000000002 0 0 0</pose>
+      <parent>fer_link0</parent>
+      <child>fer_link1</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-2.8973</lower>
+          <upper>2.8973</upper>
+          <effort>87</effort>
+          <velocity>2.1749999999999998</velocity>
+        </limit>
+        <dynamics>
+          <damping>0.0030000000000000001</damping>
+          <friction>0.20000000000000001</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name="fer_link1">
+      <pose relative_to="fer_joint1">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0.00033 -0.022040000000000001 -0.047620000000000003 0 0 0</pose>
+        <mass>2.7907000000000002</mass>
+        <inertia>
+          <ixx>0.015647826550000001</ixx>
+          <ixy>5.3123599999999999e-06</ixy>
+          <ixz>-3.6767210000000003e-05</ixz>
+          <iyy>0.014398835259999999</iyy>
+          <iyz>-0.0024848084299999998</iyz>
+          <izz>0.0050044399100000001</izz>
+        </inertia>
+      </inertial>
+      <collision name="fer_link1_collision_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/collision/link1.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="fer_link1_visual_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/visual/link1.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="fer_joint2" type="revolute">
+      <pose relative_to="fer_link1">0 0 0 -1.570796326794897 0 0</pose>
+      <parent>fer_link1</parent>
+      <child>fer_link2</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-1.7627999999999999</lower>
+          <upper>1.7627999999999999</upper>
+          <effort>87</effort>
+          <velocity>2.1749999999999998</velocity>
+        </limit>
+        <dynamics>
+          <damping>0.0030000000000000001</damping>
+          <friction>0.20000000000000001</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name="fer_link2">
+      <pose relative_to="fer_joint2">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0.00038000000000000002 -0.092109999999999997 0.01908 0 0 0</pose>
+        <mass>2.5419999999999998</mass>
+        <inertia>
+          <ixx>0.016624277279999999</ixx>
+          <ixy>3.0860769999999999e-05</ixy>
+          <ixz>8.3594e-06</ixz>
+          <iyy>0.0046250126099999997</iyy>
+          <iyz>0.0035589983</iyz>
+          <izz>0.01545124526</izz>
+        </inertia>
+      </inertial>
+      <collision name="fer_link2_collision_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/collision/link2.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="fer_link2_visual_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/visual/link2.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="fer_joint3" type="revolute">
+      <pose relative_to="fer_link2">0 -0.316 0 1.570796326794897 0 0</pose>
+      <parent>fer_link2</parent>
+      <child>fer_link3</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-2.8973</lower>
+          <upper>2.8973</upper>
+          <effort>87</effort>
+          <velocity>2.1749999999999998</velocity>
+        </limit>
+        <dynamics>
+          <damping>0.0030000000000000001</damping>
+          <friction>0.20000000000000001</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name="fer_link3">
+      <pose relative_to="fer_joint3">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0.051520000000000003 0.016959999999999999 -0.02971 0 0 0</pose>
+        <mass>2.2513000000000001</mass>
+        <inertia>
+          <ixx>0.0063174199200000001</ixx>
+          <ixy>0.00097309955000000003</ixy>
+          <ixz>0.00292525834</ixz>
+          <iyy>0.00866285493</iyy>
+          <iyz>0.00093469224</iyz>
+          <izz>0.00657804051</izz>
+        </inertia>
+      </inertial>
+      <collision name="fer_link3_collision_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/collision/link3.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="fer_link3_visual_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/visual/link3.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="fer_joint4" type="revolute">
+      <pose relative_to="fer_link3">0.082500000000000004 0 0 1.570796326794897 0 0</pose>
+      <parent>fer_link3</parent>
+      <child>fer_link4</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-3.0718000000000001</lower>
+          <upper>-0.069800000000000001</upper>
+          <effort>87</effort>
+          <velocity>2.1749999999999998</velocity>
+        </limit>
+        <dynamics>
+          <damping>0.0030000000000000001</damping>
+          <friction>0.20000000000000001</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name="fer_link4">
+      <pose relative_to="fer_joint4">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>-0.051130000000000002 0.058250000000000003 0.016979999999999999 0 0 0</pose>
+        <mass>2.2037</mass>
+        <inertia>
+          <ixx>0.0078458556599999996</ixx>
+          <ixy>-0.0033959195700000002</ixy>
+          <ixz>0.0015870407399999999</ixz>
+          <iyy>0.0064954313599999997</iyy>
+          <iyz>-0.0018147788400000001</iyz>
+          <izz>0.01003079917</izz>
+        </inertia>
+      </inertial>
+      <collision name="fer_link4_collision_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/collision/link4.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="fer_link4_visual_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/visual/link4.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="fer_joint5" type="revolute">
+      <pose relative_to="fer_link4">-0.082500000000000004 0.38400000000000001 0 -1.570796326794897 0 0</pose>
+      <parent>fer_link4</parent>
+      <child>fer_link5</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-2.8973</lower>
+          <upper>2.8973</upper>
+          <effort>12</effort>
+          <velocity>2.6099999999999999</velocity>
+        </limit>
+        <dynamics>
+          <damping>0.0030000000000000001</damping>
+          <friction>0.20000000000000001</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name="fer_link5">
+      <pose relative_to="fer_joint5">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>-5.0000000000000002e-05 0.0373 -0.092799999999999994 0 0 0</pose>
+        <mass>2.2854999999999999</mass>
+        <inertia>
+          <ixx>0.022970147810000001</ixx>
+          <ixy>-9.4934499999999997e-06</ixy>
+          <ixz>-2.0631560000000001e-05</ixz>
+          <iyy>0.02095060919</iyy>
+          <iyz>0.0038234578199999999</iyz>
+          <izz>0.0043060655100000001</izz>
+        </inertia>
+      </inertial>
+      <collision name="fer_link5_collision_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/collision/link5.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="fer_link5_visual_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/visual/link5.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="fer_joint6" type="revolute">
+      <pose relative_to="fer_link5">0 0 0 1.570796326794897 0 0</pose>
+      <parent>fer_link5</parent>
+      <child>fer_link6</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-0.017500000000000002</lower>
+          <upper>3.7524999999999999</upper>
+          <effort>12</effort>
+          <velocity>2.6099999999999999</velocity>
+        </limit>
+        <dynamics>
+          <damping>0.0030000000000000001</damping>
+          <friction>0.20000000000000001</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name="fer_link6">
+      <pose relative_to="fer_joint6">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0.065720000000000001 -0.0037100000000000002 0.0015299999999999999 0 0 0</pose>
+        <mass>1.353</mass>
+        <inertia>
+          <ixx>0.00087964521999999996</ixx>
+          <ixy>-0.00021487814000000001</ixy>
+          <ixz>-0.00011911662000000001</ixz>
+          <iyy>0.0027779696799999998</iyy>
+          <iyz>1.274322e-05</iyz>
+          <izz>0.00286701969</izz>
+        </inertia>
+      </inertial>
+      <collision name="fer_link6_collision_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/collision/link6.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="fer_link6_visual_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/visual/link6.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="fer_joint7" type="revolute">
+      <pose relative_to="fer_link6">0.087999999999999995 0 0 1.570796326794897 0 0</pose>
+      <parent>fer_link6</parent>
+      <child>fer_link7</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-2.8973</lower>
+          <upper>2.8973</upper>
+          <effort>12</effort>
+          <velocity>2.6099999999999999</velocity>
+        </limit>
+        <dynamics>
+          <damping>0.0030000000000000001</damping>
+          <friction>0.20000000000000001</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name="fer_link7">
+      <pose relative_to="fer_joint7">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0.00088999999999999995 -0.00044000000000000002 0.05491 0 0 0</pose>
+        <mass>0.35972999999999999</mass>
+        <inertia>
+          <ixx>0.00019541063</ixx>
+          <ixy>1.6523099999999999e-06</ixy>
+          <ixz>1.48826e-06</ixz>
+          <iyy>0.00019210361</iyy>
+          <iyz>-1.31132e-06</iyz>
+          <izz>0.00017936256000000001</izz>
+        </inertia>
+      </inertial>
+      <collision name="fer_link7_collision_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/collision/link7.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="fer_link7_visual_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_arms/fer/visual/link7.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="fer_joint8" type="revolute">
+      <pose relative_to="fer_link7">0 0 0.107 0 0 0</pose>
+      <parent>fer_link7</parent>
+      <child>fer_link8</child>
+      <axis>
+        <limit>
+          <lower>0</lower>
+          <upper>0</upper>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <xyz>0 0 1</xyz>
+      </axis>
+      <physics>
+        <ode>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.20000000000000001</erp>
+          </limit>
+        </ode>
+      </physics>
+    </joint>
+    <link name="fer_link8">
+      <pose relative_to="fer_joint8">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>1.0000000000000001e-05</mass>
+        <inertia>
+          <ixx>1.0000000000000001e-05</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>1.0000000000000001e-05</iyy>
+          <iyz>0</iyz>
+          <izz>1.0000000000000001e-05</izz>
+        </inertia>
+      </inertial>
+    </link>
+    <joint name="fer_hand_joint" type="revolute">
+      <pose relative_to="fer_link8">0 0 0 0 0 -0.78539816339744839</pose>
+      <parent>fer_link8</parent>
+      <child>fer_hand</child>
+      <axis>
+        <limit>
+          <lower>0</lower>
+          <upper>0</upper>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <xyz>0 0 1</xyz>
+      </axis>
+      <physics>
+        <ode>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.20000000000000001</erp>
+          </limit>
+        </ode>
+      </physics>
+    </joint>
+    <link name="fer_hand">
+      <pose relative_to="fer_hand_joint">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>-3.7599999999999999e-05 0.011912799999999999 0.020726000000000001 0 0 0</pose>
+        <mass>0.65439999999999998</mass>
+        <inertia>
+          <ixx>0.0018600000000000001</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.00029999999999999997</iyy>
+          <iyz>-2.0000000000000002e-05</iyz>
+          <izz>0.00174</izz>
+        </inertia>
+      </inertial>
+      <collision name="fer_hand_collision_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_ee/franka_hand_white/collision/hand.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="fer_hand_visual_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_ee/franka_hand_white/visual/hand.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="fer_finger_joint1" type="prismatic">
+      <pose relative_to="fer_hand">0 0 0.058400000000000001 0 0 0</pose>
+      <parent>fer_hand</parent>
+      <child>fer_leftfinger</child>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>0</lower>
+          <upper>0.040000000000000001</upper>
+          <effort>100</effort>
+          <velocity>0.20000000000000001</velocity>
+        </limit>
+        <dynamics>
+          <damping>0.29999999999999999</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name="fer_leftfinger">
+      <pose relative_to="fer_finger_joint1">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0.015285 0.021967500000000001 0 0 0</pose>
+        <mass>0.029100000000000001</mass>
+        <inertia>
+          <ixx>8.49e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>8.5299999999999996e-06</iyy>
+          <iyz>-1.06e-06</iyz>
+          <izz>1.77e-06</izz>
+        </inertia>
+      </inertial>
+      <collision name="fer_leftfinger_collision">
+        <pose>0 0.018499999999999999 0.010999999999999999 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.021999999999999999 0.014999999999999999 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+      <collision name="fer_leftfinger_collision_1">
+        <pose>0 0.0067999999999999996 0.0022000000000000001 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.021999999999999999 0.0088000000000000005 0.0038</size>
+          </box>
+        </geometry>
+      </collision>
+      <collision name="fer_leftfinger_collision_2">
+        <pose>0 0.015900000000000001 0.02835 0.52359877559829882 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.017500000000000002 0.0070000000000000001 0.0235</size>
+          </box>
+        </geometry>
+      </collision>
+      <collision name="fer_leftfinger_collision_3">
+        <pose>0 0.0075799999999999999 0.045249999999999999 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.017500000000000002 0.0152 0.018499999999999999</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="fer_leftfinger_visual_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_ee/franka_hand_white/visual/finger.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="fer_finger_joint2" type="prismatic">
+      <pose relative_to="fer_hand">0 0 0.058400000000000001 0 0 3.1415926535897931</pose>
+      <parent>fer_hand</parent>
+      <child>fer_rightfinger</child>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <mimic joint="fer_finger_joint1">
+          <multiplier>1</multiplier>
+          <offset>0</offset>
+          <reference>0</reference>
+        </mimic>
+        <limit>
+          <lower>0</lower>
+          <upper>0.040000000000000001</upper>
+          <effort>100</effort>
+          <velocity>0.20000000000000001</velocity>
+        </limit>
+        <dynamics>
+          <damping>0.29999999999999999</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name="fer_rightfinger">
+      <pose relative_to="fer_finger_joint2">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0.015285 0.021967500000000001 0 0 0</pose>
+        <mass>0.029100000000000001</mass>
+        <inertia>
+          <ixx>8.49e-06</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>8.5299999999999996e-06</iyy>
+          <iyz>-1.06e-06</iyz>
+          <izz>1.77e-06</izz>
+        </inertia>
+      </inertial>
+      <collision name="fer_rightfinger_collision">
+        <pose>0 0.018499999999999999 0.010999999999999999 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.021999999999999999 0.014999999999999999 0.02</size>
+          </box>
+        </geometry>
+      </collision>
+      <collision name="fer_rightfinger_collision_1">
+        <pose>0 0.0067999999999999996 0.0022000000000000001 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.021999999999999999 0.0088000000000000005 0.0038</size>
+          </box>
+        </geometry>
+      </collision>
+      <collision name="fer_rightfinger_collision_2">
+        <pose>0 0.015900000000000001 0.02835 -0.52359877559829882 0 3.1415926535897931</pose>
+        <geometry>
+          <box>
+            <size>0.017500000000000002 0.0070000000000000001 0.0235</size>
+          </box>
+        </geometry>
+      </collision>
+      <collision name="fer_rightfinger_collision_3">
+        <pose>0 0.0075799999999999999 0.045249999999999999 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.017500000000000002 0.0152 0.018499999999999999</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="fer_rightfinger_visual_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>model://franka_description/meshes/robot_ee/franka_hand_white/visual/finger.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="fer_hand_tcp_joint" type="revolute">
+      <pose relative_to="fer_hand">0 0 0.10340000000000001 0 0 0</pose>
+      <parent>fer_hand</parent>
+      <child>fer_hand_tcp</child>
+      <axis>
+        <limit>
+          <lower>0</lower>
+          <upper>0</upper>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <friction>0</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+        <xyz>0 0 1</xyz>
+      </axis>
+      <physics>
+        <ode>
+          <limit>
+            <cfm>0</cfm>
+            <erp>0.20000000000000001</erp>
+          </limit>
+        </ode>
+      </physics>
+    </joint>
+    <link name="fer_hand_tcp">
+      <pose relative_to="fer_hand_tcp_joint">0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>1.0000000000000001e-05</mass>
+        <inertia>
+          <ixx>1.0000000000000001e-05</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>1.0000000000000001e-05</iyy>
+          <iyz>0</iyz>
+          <izz>1.0000000000000001e-05</izz>
+        </inertia>
+      </inertial>
+    </link>
+  </model>
+</sdf>

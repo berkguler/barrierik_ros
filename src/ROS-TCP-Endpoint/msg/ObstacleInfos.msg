@@ -1,0 +1,2 @@
+ObstacleInfo[] obstacles
+

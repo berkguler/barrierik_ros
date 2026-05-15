@@ -1,0 +1,22 @@
+<launch>
+    <arg name="helper_start_delay" default="5.0" />
+    <arg name="main_start_delay" default="10.0" />
+    <arg name="model" default="$(find franka_description)/urdfs/fer_franka_hand_relative.urdf"/>
+    <arg name="sharedautonomy_mode" default="None" />
+    <arg name="solver_mode" default="relaxedik" />
+
+    <node name="bik" pkg="bik_pkg" type="bik_helper.py" output="screen">
+        <param name="sharedautonomy_mode" value="$(arg sharedautonomy_mode)"/>
+        <param name="solver_mode" value="$(arg solver_mode)"/>
+    </node>
+
+
+    <node name="IK" pkg="bik_pkg" type="IK.py" output="screen"   launch-prefix="bash -c 'sleep $(arg main_start_delay); $0 $@' " />
+    <param name="my_robot_description" textfile="$(arg model)" />
+    <node name="joint_state_combiner" pkg="bik_pkg" type="robot_state.py"  output="screen"></node>
+
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="rob_st_pub" >
+        <remap from="robot_description" to="my_robot_description" />
+        <remap from="joint_states" to="joint_states_modified" />
+      </node>
+</launch>

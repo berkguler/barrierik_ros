@@ -1,0 +1,4 @@
+# Ignore the aux folder and its contents
+auxillary/
+.vscode
+.ipynb_checkpoints

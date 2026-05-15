@@ -1,0 +1,2 @@
+sensor_msgs/JointState q_target
+geometry_msgs/PoseArray poses_ai_target

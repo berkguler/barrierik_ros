@@ -1,0 +1,4 @@
+PACKAGE_NAME : 'franka_description'
+URDF_PATH : 'urdfs/fer_franka_hand_relative.urdf'
+MESH_DIR : 'meshes/'
+EE_NAME: 'fer_hand'
