@@ -1,0 +1,194 @@
+# syntax=docker/dockerfile:1
+FROM ubuntu:20.04
+
+ARG ROS_DISTRO=noetic
+ARG ROS_APT_SOURCE_VERSION=1.2.0
+ARG PYTHON_VERSION=3.11.11
+ARG CATKIN_WS=/root/barrierik_docker
+ARG GAZEBO_APT_KEYRING=/usr/share/keyrings/gazebo-archive-keyring.gpg
+ARG TARGETARCH
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    DISABLE_ROS1_EOL_WARNINGS=true \
+    LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8 \
+    HOME=/root \
+    CATKIN_WS=${CATKIN_WS} \
+    PYTHON_PREFIX=/opt/python3.11 \
+    VIRTUAL_ENV=/opt/barrierik_docker_venv \
+    PIP_NO_CACHE_DIR=1 \
+    JAX_PLATFORM_NAME=cpu \
+    CUDA_VISIBLE_DEVICES= \
+    XLA_PYTHON_CLIENT_PREALLOCATE=false \
+    DISPLAY=:0 \
+    TERM=xterm \
+    QT_X11_NO_MITSHM=1 \
+    LIBGL_ALWAYS_SOFTWARE=1
+
+SHELL ["/bin/bash", "-c"]
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    apt-utils \
+    bash-completion \
+    build-essential \
+    ca-certificates \
+    cmake \
+    curl \
+    dbus-x11 \
+    freeglut3-dev \
+    git \
+    gnupg \
+    iputils-ping \
+    less \
+    libbz2-dev \
+    libffi-dev \
+    libgl1-mesa-dri \
+    libgl1-mesa-glx \
+    libglu1-mesa \
+    libice6 \
+    liblzma-dev \
+    libncursesw5-dev \
+    libosmesa6 \
+    libreadline-dev \
+    libsm6 \
+    libsqlite3-dev \
+    libssl-dev \
+    libx11-6 \
+    libxcb-xinerama0 \
+    libxext6 \
+    libxkbcommon-x11-0 \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libxrender1 \
+    locales \
+    lsb-release \
+    mesa-utils \
+    nano \
+    net-tools \
+    ninja-build \
+    pkg-config \
+    software-properties-common \
+    tk-dev \
+    tzdata \
+    wget \
+    x11-apps \
+    xauth \
+    xz-utils \
+    zlib1g-dev \
+    && locale-gen en_US en_US.UTF-8 \
+    && update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 \
+    && add-apt-repository universe \
+    && rm -rf /var/lib/apt/lists/*
+
+# ROS repository setup uses ros-apt-source, the post-2025 replacement for the
+# old apt-key/ros.asc flow whose signing key expired in June 2025.
+RUN set -eux; \
+    source /etc/os-release; \
+    codename="${UBUNTU_CODENAME:-${VERSION_CODENAME}}"; \
+    repo_arch="${TARGETARCH:-amd64}"; \
+    curl -L -o /tmp/ros-apt-source.deb \
+      "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros-apt-source_${ROS_APT_SOURCE_VERSION}.${codename}_all.deb"; \
+    dpkg -i /tmp/ros-apt-source.deb; \
+    rm -f /tmp/ros-apt-source.deb; \
+    curl -fsSL https://packages.osrfoundation.org/gazebo.gpg \
+      | gpg --dearmor -o "${GAZEBO_APT_KEYRING}"; \
+    echo "deb [arch=${repo_arch} signed-by=${GAZEBO_APT_KEYRING}] http://packages.osrfoundation.org/gazebo/ubuntu-stable ${codename} main" \
+      > /etc/apt/sources.list.d/gazebo-stable.list
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-catkin-tools \
+    python3-empy \
+    python3-netifaces \
+    python3-numpy \
+    python3-osrf-pycommon \
+    python3-pip \
+    python3-rosdep \
+    python3-rosinstall \
+    python3-rosinstall-generator \
+    python3-vcstool \
+    python3-wstool \
+    ros-${ROS_DISTRO}-desktop \
+    ros-${ROS_DISTRO}-geometry-msgs \
+    ros-${ROS_DISTRO}-interactive-markers \
+    ros-${ROS_DISTRO}-joint-state-publisher-gui \
+    ros-${ROS_DISTRO}-message-generation \
+    ros-${ROS_DISTRO}-message-runtime \
+    ros-${ROS_DISTRO}-robot-state-publisher \
+    ros-${ROS_DISTRO}-rosbash \
+    ros-${ROS_DISTRO}-rosgraph-msgs \
+    ros-${ROS_DISTRO}-sensor-msgs \
+    ros-${ROS_DISTRO}-std-msgs \
+    ros-${ROS_DISTRO}-tf \
+    ros-${ROS_DISTRO}-visualization-msgs \
+    ros-${ROS_DISTRO}-xacro \
+    && (rosdep init || true) \
+    && rosdep update --rosdistro=${ROS_DISTRO} \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    cd /tmp; \
+    curl -fsSLO "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"; \
+    tar -xzf "Python-${PYTHON_VERSION}.tgz"; \
+    cd "Python-${PYTHON_VERSION}"; \
+    ./configure --prefix="${PYTHON_PREFIX}" --with-ensurepip=install; \
+    make -j"$(nproc)"; \
+    make install; \
+    cd /tmp; \
+    rm -rf "Python-${PYTHON_VERSION}" "Python-${PYTHON_VERSION}.tgz"; \
+    "${PYTHON_PREFIX}/bin/python3.11" --version
+
+RUN "${PYTHON_PREFIX}/bin/python3.11" -m venv "${VIRTUAL_ENV}"
+ENV PATH=${VIRTUAL_ENV}/bin:${PATH}
+
+RUN python -m pip install --upgrade "pip<25" setuptools wheel \
+    && python -m pip install \
+      catkin_pkg \
+      defusedxml \
+      "empy==3.3.4" \
+      netifaces \
+      rospkg
+
+WORKDIR ${CATKIN_WS}
+
+COPY docker/../src/ROS-TCP-Endpoint/requirements.txt /tmp/ros_tcp_endpoint_requirements.txt
+RUN pip install jaxsim==0.3.0 jaxlib==0.4.30 jax==0.4.30 "numpy<2.0" flax==0.8.5 pycollada \
+    && pip install pin==2.6.21 \
+    && pip install "numpy<2.0" jaxlie jaxopt matplotlib meshcat nlopt pandas scipy urdf-parser-py \
+    && pip install git+https://github.com/kevin-tracy/dpax.git \
+    && pip install -r /tmp/ros_tcp_endpoint_requirements.txt \
+    && python -c "import jaxsim, rod; print('jaxsim', jaxsim.__version__)" \
+    && python -c "import pinocchio as pin, hppfcl; print('pinocchio', pin.__version__, 'hppfcl', getattr(hppfcl, '__version__', 'unknown'))" \
+    && pip check
+
+COPY docker/.. ${CATKIN_WS}
+COPY docker/ros_entrypoint.sh /ros_entrypoint.sh
+
+RUN chmod +x /ros_entrypoint.sh \
+    && rm -f src/CMakeLists.txt \
+    && ln -s "/opt/ros/${ROS_DISTRO}/share/catkin/cmake/toplevel.cmake" src/CMakeLists.txt
+
+RUN apt-get update \
+    && source "/opt/ros/${ROS_DISTRO}/setup.bash" \
+    && rosdep install \
+      --from-paths src/bik_pkg src/relaxed_ik_ros1 src/ROS-TCP-Endpoint \
+      --ignore-src \
+      --rosdistro=${ROS_DISTRO} \
+      -r -y \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN source "/opt/ros/${ROS_DISTRO}/setup.bash" \
+    && catkin config --extend "/opt/ros/${ROS_DISTRO}" --cmake-args -DCMAKE_BUILD_TYPE=Release \
+    && catkin build --no-status relaxed_ik_ros1 ros_tcp_endpoint bik_pkg
+
+# Ensure manual "source devel/setup.bash" still exposes all workspace packages.
+RUN grep -qxF "export ROS_PACKAGE_PATH=${CATKIN_WS}/src:\${ROS_PACKAGE_PATH:-}" "${CATKIN_WS}/devel/setup.bash" \
+    || echo "export ROS_PACKAGE_PATH=${CATKIN_WS}/src:\${ROS_PACKAGE_PATH:-}" >> "${CATKIN_WS}/devel/setup.bash"
+
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc \
+    && echo "[ -f ${CATKIN_WS}/devel/setup.bash ] && source ${CATKIN_WS}/devel/setup.bash" >> /root/.bashrc \
+    && echo "export ROS_PACKAGE_PATH=${CATKIN_WS}/src:\${ROS_PACKAGE_PATH:-}" >> /root/.bashrc
+
+EXPOSE 11311 10000
+
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["bash"]

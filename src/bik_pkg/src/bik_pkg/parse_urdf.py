@@ -7,6 +7,8 @@ import hppfcl
 import yaml
 import xml.etree.ElementTree as ET
 import os
+import shutil
+import subprocess
 
 
 import jax
@@ -117,28 +119,72 @@ def convert_format(num_str):
     if len(parts) == 2 and len(parts[1]) == 1:  # If single decimal digit
         return float(f"{parts[0]}.0{parts[1]}")
     return float(num_str)  # Return as is if already correct
+
+def _run_urdf_to_sdf_converter(urdf_file):
+    converters = [
+        ["gz", "sdf", "-p", urdf_file],
+        ["ign", "sdf", "-p", urdf_file],
+        ["gzsdf", "print", urdf_file],
+    ]
+
+    for command in converters:
+        executable = command[0]
+        if shutil.which(executable) is None:
+            continue
+
+        env = os.environ.copy()
+        if sys.platform == "darwin":
+            # Keep optional Homebrew OGRE runtime support for local macOS setups.
+            ogre_lib = "/opt/homebrew/Cellar/ogre1.9/1.9-20160714-108ab0bcc69603dba32c0ffd4bbbc39051f421c9_10/lib"
+            if os.path.isdir(ogre_lib):
+                current = env.get("DYLD_LIBRARY_PATH", "")
+                env["DYLD_LIBRARY_PATH"] = f"{ogre_lib}:{current}" if current else ogre_lib
+
+        result = subprocess.run(command, capture_output=True, text=True, env=env)
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout
+
+        stderr = result.stderr.strip() if result.stderr else ""
+        if stderr:
+            print(f"URDF->SDF conversion failed with {' '.join(command[:3])}: {stderr}")
+
+    return None
+
 def urdf_to_sdf(urdf_file):
-    # Run the command to convert URDF to SDF
-    if sys.platform == "darwin":
-        print("Running on MacOS")
-        os.system("export DYLD_LIBRARY_PATH=/opt/homebrew/Cellar/ogre1.9/1.9-20160714-108ab0bcc69603dba32c0ffd4bbbc39051f421c9_10/lib:$DYLD_LIBRARY_PATH\n" +
-                  "gz sdf -p " + urdf_file + " > " + os.path.join(package_path,  "assets/sdf_file.sdf"))
+    output_sdf = os.path.join(package_path, "assets/sdf_file.sdf")
+    fallback_sdf = os.path.join(package_path, "assets/sdf_file")
+
+    print(f"Running on {'MacOS' if sys.platform == 'darwin' else 'Linux'}")
+
+    # Convert to SDF only if we have a converter; avoid clobbering with an empty file.
+    converted_sdf = _run_urdf_to_sdf_converter(urdf_file)
+    if converted_sdf is not None:
+        with open(output_sdf, "w") as f:
+            f.write(converted_sdf)
+        parse_candidate = output_sdf
     else:
-        print("Running on Linux")
-        os.system("gz sdf -p " + urdf_file + " > " + os.path.join(package_path,  "assets/sdf_file.sdf"))
-    #print("SDF file saved at assets/sdf_file")
-    tree = ET.parse( os.path.join(package_path,  "assets/sdf_file.sdf"))
+        print("No URDF->SDF converter (gz/ign/gzsdf) was found. Falling back to bundled SDF file.")
+        if os.path.exists(output_sdf) and os.path.getsize(output_sdf) > 0:
+            parse_candidate = output_sdf
+        elif os.path.exists(fallback_sdf) and os.path.getsize(fallback_sdf) > 0:
+            parse_candidate = fallback_sdf
+        else:
+            raise RuntimeError(
+                "URDF->SDF conversion failed and no valid fallback SDF file was found in bik_pkg/assets."
+            )
+
+    tree = ET.parse(parse_candidate)
     root = tree.getroot()
     # Change the root tags version to 1.9 it should be 1.09
-    current_version =  convert_format(root.attrib["version"])
+    current_version = convert_format(root.attrib["version"])
     print("Current SDF version: ", current_version)
     
     if current_version < 1.09:
         print("Changing version to 1.9")
         root.attrib["version"] = "1.9"
 
-    tree.write( os.path.join(package_path,  "assets/sdf_file.sdf"))
-    return  os.path.join(package_path,  "assets/sdf_file.sdf")
+    tree.write(output_sdf)
+    return output_sdf
 
 
 def generate_capsule_name(self, base_name: str, existing_names: list) -> str:
@@ -392,4 +438,3 @@ def init(yaml_file = "franka_description.yaml", open_viewer = True, disable_pin_
     
     
     return PANDAmodel, PANDAcollision_model, PANDAvisual_model, PANDAdata, PANDAcollision_data, PandaViewer, robotmodel, robotdata, list_panda_capsules_jax
-
