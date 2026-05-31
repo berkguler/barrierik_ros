@@ -3,6 +3,7 @@
     <arg name="main_start_delay" default="10.0" />
     <arg name="model" default="$(find franka_description)/urdfs/fer_franka_hand_relative.urdf"/>
     <arg name="sharedautonomy_mode" default="None" />
+    <!-- solver_mode options: relaxedik | barrierik | barrierik_moving | collisionik -->
     <arg name="solver_mode" default="relaxedik" />
 
     <node name="bik" pkg="bik_pkg" type="bik_helper.py" output="screen">

@@ -65,7 +65,7 @@ callback_called = False
 #import tf
 #tf_broadcaster = tf.TransformBroadcaster()
 def callback(data):
-    global robot_monitor, callback_called
+    global robot_monitor, callback_called, q_actual
 
     if not callback_called:
         rospy.loginfo("Callback called")
@@ -91,7 +91,7 @@ def callback(data):
         robot_monitor.reset_status = False
 
     robot_monitor.set_target(x_target_pos,x_target_quat)
-    if solver_mode == "relaxedik" or solver_mode == "relaxedik_cbf" or solver_mode == "collisionik":
+    if solver_mode in ("relaxedik", "barrierik", "collisionik", "barrierik_moving"):
         if robot_monitor.get_sharedautonomy_mode()  != "None":
             if (robot._helperpos is None or 
                 robot._helperquat is None or 
@@ -134,11 +134,12 @@ if __name__ == '__main__':
     try:
         rospy.init_node('bik_robot', anonymous=True, log_level=rospy.INFO)
         sharedautonomy_mode = rospy.get_param('~sharedautonomy_mode', "None")
-        solver_mode = rospy.get_param('~solver_mode', "relaxedik") 
+        solver_mode = rospy.get_param('~solver_mode', "relaxedik")
         # "relaxedik_original" for rust version
         # "relaxedik" for jax version
-        # "relaxedik_cbf" for jax version with cbf
-        if solver_mode == "relaxedik" or solver_mode == "relaxedik_cbf"or solver_mode == "collisionik":
+        # "barrierik" for jax version with static-obstacle cbf
+        # "barrierik_moving" for jax version with moving-obstacle cbf
+        if solver_mode in ("relaxedik", "barrierik", "collisionik", "barrierik_moving"):
             robot = Robot_bik(sharedautonomy_mode, solver_mode)
             robot.set_mode(sharedautonomy_mode, solver_mode)
             for n in robot.PANDAmodel.names:
@@ -153,10 +154,10 @@ if __name__ == '__main__':
             robot = relaxedik_original()
         else:
             rospy.logerr("Solver mode not recognized. Exiting. " \
-            "Possible values are: relaxedik, relaxedik_original, relaxedik_cbf")
+            "Possible values are: relaxedik, relaxedik_original, barrierik, barrierik_moving, collisionik")
             sys.exit(1)
         robot_monitor = RobotMonitor(robot)
-        if solver_mode == "relaxedik_cbf"or solver_mode == "collisionik":
+        if solver_mode in ("barrierik", "collisionik", "barrierik_moving"):
             rospy.Subscriber("obstacle_info", ObstacleInfos, robot_monitor.set_obstacles)
         
 

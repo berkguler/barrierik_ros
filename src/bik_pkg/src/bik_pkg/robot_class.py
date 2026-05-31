@@ -10,18 +10,25 @@ import math
 from scipy.spatial.transform import Rotation as R
 import threading
 import time
+
+SUPPORTED_SOLVER_MODES = {
+    "relaxedik",
+    "barrierik",
+    "barrierik_moving",
+    "collisionik",
+}
+
 class Robot_bik:
     def __init__(self, sharedautonomy_mode = "None", solver_mode = "relaxedik", robot_tag = "",  XTOL = 1e-6, MAXEVAL = 40):
         self.target = bik._Mtarget_SE3
         self.init = bik._theta_0
         self.sharedautonomy_mode = "None" #"None" or "Arbitration"
-        self.solver_mode = "relaxedik" #"relaxedik", "relaxedik_cbf", "collsionik", "other"
+        self.solver_mode = "relaxedik" #"relaxedik", "barrierik", "barrierik_moving", "collisionik", "other"
         self.helper = bik._Mhelper_SE3
         self._helperpos = None
         self._helperquat = None
-        self.init = self.init.at[3].set(-0.4)
-        self.init = self.init[0:7]
-        self.Q = self.init
+        self.init = bik.np.array(bik.q_median_config[0:7])
+        self.Q =  bik.np.array(bik.q_median_config[0:7])
         self.Q_history = deque(maxlen=10)
         self.tp = bik._theta_poses
         self.tv = bik._theta_vels
@@ -50,8 +57,12 @@ class Robot_bik:
         self.set_mode(sharedautonomy_mode, solver_mode)
         if self.solver_mode == "relaxedik":
             Q, tp, tv,ta, Cposes, self.opt_result = bik.run(self.Q, self.target, self.tp, self.tv, self.ta, self.Cposes, XTOL = self.XTOL, MAXEVAL = self.MAXEVAL)
-        elif self.solver_mode == "relaxedik_cbf":
+        elif self.solver_mode == "barrierik":
             Q, tp, tv,ta, Cposes, self.opt_result = bik.run_with_cbf(self.Q, self.target, self.tp, self.tv, self.ta, self.Cposes, XTOL = self.XTOL, MAXEVAL = self.MAXEVAL)
+        elif self.solver_mode == "barrierik_moving":
+            Q, tp, tv,ta, Cposes, self.opt_result = bik.run_with_cbf_moving(self.Q, self.target, self.tp, self.tv, self.ta, self.Cposes, 
+                                                                            XTOL = self.XTOL, MAXEVAL = self.MAXEVAL,
+                                                                            obstacles_dict = {}, obstacles_vel_dict = {}, dt = 0.01)
         elif self.solver_mode == "collisionik":
             Q, tp, tv, ta, Cposes, self.opt_result  = bik.run_with_collisionik(self.Q, self.target, self.tp, self.tv, self.ta, self.Cposes,XTOL = self.XTOL, MAXEVAL = self.MAXEVAL)
 
@@ -80,15 +91,20 @@ class Robot_bik:
         self.obstacle_data = ObstacleInfos()
         self.obstacles = {}
         
+        # Obstacle velocity tracking for moving CBF
+        self.obstacle_position_history = {}  # Store position history for velocity calculation
+        self.obstacle_velocities = {}        # Computed velocities
+        self.max_history_length = 5         # Number of positions to keep for velocity estimation
 
         
     def set_mode(self, sa_mode, solver_mode):
         if not (sa_mode == "None" or sa_mode == "Arbitration"):
             raise ValueError("Invalid mode")
         self.sharedautonomy_mode = sa_mode
-        if not (solver_mode == "relaxedik" or solver_mode == "relaxedik_cbf" or solver_mode == "collisionik"):
+        if solver_mode not in SUPPORTED_SOLVER_MODES:
             raise ValueError("Invalid solver mode")
         self.solver_mode = solver_mode
+        print(self.solver_mode, self.sharedautonomy_mode)
     
     def Rquat(self,x, y, z, w): #Converts quaternion to rotation matrix and quaternion coefficient
         q = bik.pin.Quaternion(x, y, z, w)
@@ -99,6 +115,68 @@ class Robot_bik:
         r = R.from_matrix(rot)
         return r, r.as_euler('zyx', degrees=False)
 
+    def track_obstacle_position(self, obstacle_id, position):
+        """Track obstacle position for velocity calculation."""
+        current_time = time.time()
+        
+        # Initialize history if not exists
+        if obstacle_id not in self.obstacle_position_history:
+            self.obstacle_position_history[obstacle_id] = []
+            self.obstacle_velocities[obstacle_id] = bik.np.zeros(3)
+        
+        # Add current position to history
+        self.obstacle_position_history[obstacle_id].append({
+            'position': position.copy(),
+            'timestamp': current_time
+        })
+        
+        # Limit history length
+        if len(self.obstacle_position_history[obstacle_id]) > self.max_history_length:
+            self.obstacle_position_history[obstacle_id].pop(0)
+        
+        # Calculate velocity if we have enough history
+        history = self.obstacle_position_history[obstacle_id]
+        if len(history) >= 2:
+            # Use finite difference with the last two positions
+            pos_curr = history[-1]['position']
+            pos_prev = history[-2]['position']
+            time_curr = history[-1]['timestamp']
+            time_prev = history[-2]['timestamp']
+            
+            dt_actual = time_curr - time_prev
+            if dt_actual > 1e-6:  # Avoid division by very small numbers
+                velocity = (pos_curr - pos_prev) / dt_actual
+                self.obstacle_velocities[obstacle_id] = velocity
+            else:
+                self.obstacle_velocities[obstacle_id] = bik.np.zeros(3)
+        else:
+            # Not enough history, assume zero velocity
+            self.obstacle_velocities[obstacle_id] = bik.np.zeros(3)
+
+    def update_obstacle_velocities(self, dt):
+        """Update obstacle velocities for moving CBF - this is now handled in track_obstacle_position."""
+        # Velocities are now calculated in real-time during obstacle updates
+        # This method is kept for compatibility but doesn't need to do anything
+        pass
+                
+    
+    def create_velocity_obstacles_dict(self):
+        """Create properly formatted velocity dictionary for CBF moving obstacles."""
+        vel_obstacles_dict = {}
+        for obstacle_id, obstacle in self.obstacles.items():
+            if obstacle_id in self.obstacle_velocities:
+                velocity = self.obstacle_velocities[obstacle_id]
+                # Format similar to obstacles but with velocity instead of position
+                # (a_vel, b_vel, _, _, radius_dummy, _)
+                vel_obstacles_dict[obstacle_id] = (
+                    velocity,  # a_vel (start point velocity)
+                    velocity,  # b_vel (end point velocity - same for sphere obstacles)
+                    bik.np.zeros(3),  # dummy
+                    bik.np.zeros(3),  # dummy  
+                    0.0,  # dummy radius
+                    0.0   # dummy
+                )
+        return vel_obstacles_dict
     
     def alpha_composer(self, arg, mode="Position"):
        # Constants for the computation
@@ -306,6 +384,10 @@ class Robot_bik:
         L_obs = bik.np.linalg.norm(a_obs - b_obs)
         R_obs = capsule_representation[4]
         capsule_representation = (a_obs, b_obs, C_obs, L_obs, R_obs, T_obs)
+        
+        # Track obstacle position for velocity calculation (also for new obstacles)
+        self.track_obstacle_position(obj.header.frame_id, bik.np.array([obj.position.x, obj.position.y, obj.position.z]))
+        
         return capsule_representation
 
         
@@ -317,6 +399,11 @@ class Robot_bik:
         a_obs, b_obs = bik.bik_collision.capsule_ab_from_T(T_obs, L_obs)
         C_obs = (a_obs + b_obs) / 2
         L_obs = bik.np.linalg.norm(a_obs - b_obs)
+        
+        # Track obstacle position for velocity calculation
+        if self.solver_mode == "barrierik_moving":
+            self.track_obstacle_position(obj.header.frame_id, bik.np.array([obj.position.x, obj.position.y, obj.position.z]))
+        
         return (a_obs, b_obs, C_obs, L_obs, R_obs, T_obs)
 
 
@@ -328,6 +415,10 @@ class Robot_bik:
             self.Q = self.init
         self.tp, self.tv, self.ta = bik.reset_derivators(self.Q)
         self.Cposes = bik.calc_Cposes(self.Q)
+        #Reset obstacle velocities
+        self.obstacle_position_history = {}
+        self.obstacle_velocities = {}
+        
 
     def run(self, q_actual = None):
         Q_guess = self.Q
@@ -342,10 +433,19 @@ class Robot_bik:
             if self.solver_mode == "relaxedik":
                 Q_new, self.tp, self.tv, self.ta, self.Cposes, self.opt_result  = bik.run(Q_guess, self.target, self.tp, self.tv, self.ta, self.Cposes,
                                                                                                         XTOL = self.XTOL, MAXEVAL = self.MAXEVAL)
-            elif self.solver_mode == "relaxedik_cbf":
+            elif self.solver_mode == "barrierik":
                 Q_new, self.tp, self.tv, self.ta, self.Cposes, self.opt_result  = bik.run_with_cbf(Q_guess, self.target, self.tp, self.tv, self.ta, self.Cposes,
                                                                                                             XTOL = self.XTOL, MAXEVAL = self.MAXEVAL,
                                                                                                         obstacles_dict = self.obstacles, dt = dt)
+            elif self.solver_mode == "barrierik_moving":
+                # Update obstacle velocities from position history
+                self.update_obstacle_velocities(dt)
+                # Create properly formatted velocity dictionary
+                vel_obstacles_dict = self.create_velocity_obstacles_dict()
+                Q_new, self.tp, self.tv, self.ta, self.Cposes, self.opt_result  = bik.run_with_cbf_moving(Q_guess, self.target, self.tp, self.tv, self.ta, self.Cposes,
+                                                                                                            XTOL = self.XTOL, MAXEVAL = self.MAXEVAL,
+                                                                                                        obstacles_dict = self.obstacles, 
+                                                                                                        obstacles_vel_dict = vel_obstacles_dict, dt = dt)
             elif self.solver_mode == "collisionik":
                 Q_new, self.tp, self.tv, self.ta, self.Cposes, self.opt_result  = bik.run_with_collisionik(Q_guess, self.target, self.tp, self.tv, self.ta, self.Cposes,
                     XTOL = self.XTOL, MAXEVAL = self.MAXEVAL,

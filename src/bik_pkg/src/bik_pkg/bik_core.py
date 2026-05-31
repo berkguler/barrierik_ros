@@ -40,6 +40,12 @@ jacobian = jit(rbda.jacobian)
 forward_kinematix = jax.jit(lambda x: forward_kinematics(robotmodel, link_index=8, base_position=jnp.array([0.0,0.0,0.0]),base_quaternion=jnp.array([1.0,0.0,0.0,0.0]), joint_positions=x))
 forward_kinematix_all = jax.jit(lambda Q, Pos: forward_kinematics_all(robotmodel, base_position=Pos,base_quaternion=jnp.array([1.0,0.0,0.0,0.0]), joint_positions=Q))
 jacobix = jax.jit(lambda x: jacobian(robotmodel, link_index=8, joint_positions=x)[:,6:6+7])
+
+# Function to compute Jacobian for any link index (for CBF correctness)
+@jax.jit
+def jacobian_for_link(joint_positions, link_index):
+    """Compute translational Jacobian for a specific link"""
+    return jacobian(robotmodel, link_index=link_index, joint_positions=joint_positions)[:3, 6:6+7]
 # %%
 q_lower_limit = PANDAmodel.lowerPositionLimit
 q_upper_limit = PANDAmodel.upperPositionLimit
@@ -310,20 +316,28 @@ def c_ks(theta_inp): #Manipulability since nlopt expects inequality constraints 
     J =  jacobix(theta)
     
     _, S, _ = jnp.linalg.svd(J, full_matrices=False)
-    #c_mean = 0.053086915331318645
-    #c_std = 0.03594815648137724
-    #c = S[-1]/S[0]
-    #b = 1.4140
-    #return (c_mean - b*c_std) - c
-    ratio = jnp.divide(S[-1], jnp.maximum(S[-1], 1e-10))
-    eigen_threshold = 0.01
-    #smallest_eigenvalue S[-1] > eigen_threshold
-    return  ratio - eigen_threshold
+    
+    # FIXED: Proper manipulability constraint
+    # Option 1: Minimum singular value constraint: σ_min ≥ threshold
+    min_singular_value_threshold = 0.00001
+    # For NLopt (h(x) ≤ 0): threshold - σ_min ≤ 0, i.e., σ_min ≥ threshold
+    constraint_min_sv = min_singular_value_threshold - S[-1]
+    
+    # Option 2: Condition number constraint: σ_max/σ_min ≤ max_condition_number  
+    max_condition_number = 10000.0  # Reasonable threshold for robotics increase when the task is too hard
+    # For NLopt: (σ_max/σ_min) - max_condition_number ≤ 0
+    condition_number = jnp.divide(S[0], jnp.maximum(S[-1], 1e-10))  # σ_max/σ_min
+    constraint_condition = condition_number - max_condition_number
+    
+    # Use the more restrictive constraint (max ensures both are satisfied)
+    # When both constraints are satisfied, both will be ≤ 0
+    # When either is violated, the result will be > 0
+    return jnp.maximum(constraint_min_sv, constraint_condition)
 
 
 @jax.jit
-def class_K_function(h, gamma=100.0):
-    return gamma * h
+def class_K_function(h, gamma=90.0 , beta = 220.0):
+    return gamma * h + beta * jnp.power(h,3)
 
 @jax.jit
 def FK_for_collisions_v2(joint_pos, T_arr, L_arr, R_arr):
@@ -425,14 +439,13 @@ def combine_obs_compatible(obstacles_dict):
         
     return a_obstacles, b_obstacles, R_obstacles
 
-temperature = 10.0
+temperature = 500.0  # Temperature parameter for LogSumExp
 @jax.jit
 def cbf_extended_function(theta_inp, _a_obs,_b_obs, _R_obs):
     theta_augmented = jnp.append(theta_inp, jnp.zeros(1))
     N_obstacle = _a_obs.shape[0]
     nA, nB, nC, nL, nR,nT = FK_for_collisions_v2(theta_augmented, T_panda, L_panda, R_panda)
-    J = jacobix(theta_augmented)[:3, :]  # Must be JAX-compatible
-    vel = jnp.dot(J, theta_inp)
+    
     cbf_values_min = jnp.zeros((N_obstacle,))
     for i in range(N_obstacle):
         _a_obs_extended, _b_obs_extended, _R_obs_extended = make_obs_compatible(
@@ -444,6 +457,7 @@ def cbf_extended_function(theta_inp, _a_obs,_b_obs, _R_obs):
         )
         h = phi - safety_margin
         min_idx = jnp.argmin(phi)
+        
         @jax.jit
         def critical_proximity(a_p) -> float:
             # Replace just the critical robot position
@@ -454,27 +468,97 @@ def cbf_extended_function(theta_inp, _a_obs,_b_obs, _R_obs):
             return minimum_proximity
         gradient = jax.grad(critical_proximity)(nA[min_idx])
         
-        # Create the sparse gradient matrix (most entries are zero)
-        # Only the row corresponding to the minimum index has non-zero values
-        grad_h = jnp.zeros_like(a_panda)
-        grad_h = grad_h.at[min_idx].set(gradient)
-        h_dot = jnp.dot(grad_h, vel) #delta_h(x)*vel >=  -K(h) , so for nlopt the inequality convention is ch(x) <= 0
+        # FIXED: Compute Jacobian for the specific link where the closest point is located
+        # The capsule index min_idx corresponds to link index min_idx
+        J_link = jacobian_for_link(theta_augmented, min_idx)
+        vel_link = jnp.dot(J_link, theta_inp)  # Velocity at the closest point's link
+        
+        # CBF condition: ḣ + class_K(h) ≥ 0
+        h_dot = jnp.dot(gradient, vel_link)  # Now gradient and velocity are at the same point
         cbf_value = -(h_dot + class_K_function(h))
         cbf_values_min = cbf_values_min.at[i].set(cbf_value[min_idx])
-    #max_cbf_values_min = jnp.max(cbf_values_min)
-    #return max_cbf_values_min
-
+    
     # Using LogSumExp instead of max
     # First find the max value for numerical stability
     max_val = jnp.max(cbf_values_min)
     # Apply logsumexp with temperature scaling (higher temperature = closer to true max)
-    logsumexp_val = max_val + jnp.log(jnp.sum(jnp.exp(temperature * (cbf_values_min - max_val)))) / temperature
+    logsumexp_val = max_val + (1.0 / temperature) * jnp.log(jnp.sum(jnp.exp(temperature * (cbf_values_min - max_val))))
+    
+    return logsumexp_val
+
+
+@jax.jit  
+def cbf_extended_moving_obstacles(theta_inp, _a_obs, _b_obs, _R_obs, _a_obs_vel, _b_obs_vel):
+    """
+    CBF computation for MOVING obstacles accounting for obstacle velocity
+    
+    Args:
+        theta_inp: Joint positions (7-DOF)
+        _a_obs: Array of obstacle start points (N_obstacles, 3)
+        _b_obs: Array of obstacle end points (N_obstacles, 3)
+        _R_obs: Array of obstacle radii (N_obstacles,)
+        _a_obs_vel: Array of obstacle start point velocities (N_obstacles, 3)
+        _b_obs_vel: Array of obstacle end point velocities (N_obstacles, 3)
+        
+    Returns:
+        CBF constraint value (should be ≤ 0 for safety)
+    """
+    theta_augmented = jnp.append(theta_inp, jnp.zeros(1))
+    N_obstacle = _a_obs.shape[0]
+    nA, nB, nC, nL, nR, nT = FK_for_collisions_v2(theta_augmented, T_panda, L_panda, R_panda)
+    
+    cbf_values_min = jnp.zeros((N_obstacle,))
+    for i in range(N_obstacle):
+        _a_obs_extended, _b_obs_extended, _R_obs_extended = make_obs_compatible(
+            _a_obs[i], _b_obs[i], _R_obs[i]
+        )
+        
+        # Extend obstacle velocities to match robot parts
+        _a_obs_vel_extended = jnp.tile(_a_obs_vel[i], (N_panda, 1))
+        _b_obs_vel_extended = jnp.tile(_b_obs_vel[i], (N_panda, 1))
+        
+        phi = collision_proximity_check_v2(
+            nA, nB, nR,
+            _a_obs_extended, _b_obs_extended, _R_obs_extended
+        )
+        h = phi - safety_margin
+        min_idx = jnp.argmin(phi)
+        
+        @jax.jit
+        def critical_proximity(a_p) -> float:
+            new_a_panda = nA.at[min_idx].set(a_p)
+            prox = batch_proximity(nR, new_a_panda, nB, _R_obs_extended, _a_obs_extended, _b_obs_extended)
+            minimum_proximity = prox[min_idx]
+            return minimum_proximity
+        
+        gradient = jax.grad(critical_proximity)(nA[min_idx])
+        
+        # Compute Jacobian for the specific link where the closest point is located
+        J_link = jacobian_for_link(theta_augmented, min_idx)
+        vel_robot_link = jnp.dot(J_link, theta_inp)  # Robot velocity at the closest point
+        
+        # Obstacle velocity at the closest point (for the critical obstacle)
+        # Use the centroid velocity of the obstacle capsule
+        vel_obstacle = (_a_obs_vel_extended[min_idx] + _b_obs_vel_extended[min_idx]) / 2.0
+        
+        # MODIFIED CBF condition for moving obstacles:
+        # ḣ = ∇h^T (J_p q̇ - ṗ_obs) + class_K(h) ≥ 0
+        # The relative velocity accounts for both robot and obstacle motion
+        relative_velocity = vel_robot_link - vel_obstacle
+        h_dot = jnp.dot(gradient, relative_velocity)
+
+        cbf_value = -(h_dot + class_K_function(h, gamma=200.0, beta=50.0))
+        cbf_values_min = cbf_values_min.at[i].set(cbf_value[min_idx])
+    
+    # Using LogSumExp for smooth approximation of max
+    max_val = jnp.max(cbf_values_min)
+    logsumexp_val = max_val + (1.0 / temperature) * jnp.log(jnp.sum(jnp.exp(temperature * (cbf_values_min - max_val))))
     
     return logsumexp_val
 
 
 @jax.jit
-def cbf_extended_vectorized(theta_inp, _a_obs, _b_obs, _R_obs, temperature=10.0):
+def cbf_extended_vectorized(theta_inp, _a_obs, _b_obs, _R_obs):
     """
     Vectorized CBF computation for multiple obstacles and robot parts
     
@@ -483,7 +567,6 @@ def cbf_extended_vectorized(theta_inp, _a_obs, _b_obs, _R_obs, temperature=10.0)
         _a_obs: Array of obstacle start points (N_obstacles, 3)
         _b_obs: Array of obstacle end points (N_obstacles, 3)
         _R_obs: Array of obstacle radii (N_obstacles,)
-        temperature: Temperature parameter for LogSumExp
         
     Returns:
         LogSumExp of all CBF values
@@ -495,10 +578,6 @@ def cbf_extended_vectorized(theta_inp, _a_obs, _b_obs, _R_obs, temperature=10.0)
     robot_a, robot_b, _, _, robot_R, _ = FK_for_collisions_v2(
         theta_augmented, T_panda, L_panda, R_panda
     )
-    
-    # Jacobian for velocity calculation
-    J = jacobix(theta_augmented)[:3, :]
-    vel = jnp.dot(J, theta_inp)
     
     # Initialize array for CBF values
     cbf_values = jnp.zeros(N_obstacles)
@@ -529,12 +608,13 @@ def cbf_extended_vectorized(theta_inp, _a_obs, _b_obs, _R_obs, temperature=10.0)
             
         gradient = jax.grad(critical_proximity)(robot_a[min_idx])
         
-        # Create sparse gradient (only non-zero at critical point)
-        grad_h = jnp.zeros_like(robot_a)
-        grad_h = grad_h.at[min_idx].set(gradient)
+        # FIXED: Compute Jacobian for the specific link where the closest point is located
+        # The capsule index min_idx corresponds to link index min_idx
+        J_link = jacobian_for_link(theta_augmented, min_idx)
+        vel_link = jnp.dot(J_link, theta_inp)  # Velocity at the closest point's link
         
         # CBF condition: ḣ + class_K(h) ≥ 0
-        h_dot = jnp.dot(grad_h[min_idx], vel)
+        h_dot = jnp.dot(gradient, vel_link)  # Now gradient and velocity are at the same point
         cbf_value = -(h_dot + class_K_function(h[min_idx]))
         
         # Store result for this obstacle
@@ -545,13 +625,14 @@ def cbf_extended_vectorized(theta_inp, _a_obs, _b_obs, _R_obs, temperature=10.0)
     
     # Apply LogSumExp to combine all CBF values
     max_val = jnp.max(cbf_values)
-    logsumexp_val = max_val + jnp.log(jnp.sum(
+    logsumexp_val = max_val + (1.0 / temperature) * jnp.log(jnp.sum(
         jnp.exp(temperature * (cbf_values - max_val))
-    )) / temperature
+    ))
     
     return logsumexp_val
 
 jac_c_cbf = jax.jit(jax.jacfwd(cbf_extended_vectorized, argnums=0))
+jac_c_cbf_moving = jax.jit(jax.jacfwd(cbf_extended_moving_obstacles, argnums=0))
 
 
 vel_threshold = 0.03
@@ -623,6 +704,13 @@ def nlopt_c_cbf(theta_inp, grad, _a_obs,_b_obs, _R_obs):
         _grad = jac_c_cbf(theta_inp, _a_obs,_b_obs, _R_obs)
         grad[:] = np.array(_grad)
     return np.array(cbf_extended_vectorized(theta_inp, _a_obs,_b_obs, _R_obs))*1.0
+
+def nlopt_c_cbf_moving(theta_inp, grad, _a_obs, _b_obs, _R_obs, _a_obs_vel, _b_obs_vel):
+    """NLopt wrapper for moving obstacles CBF constraint"""
+    if grad.size > 0:
+        _grad = jac_c_cbf_moving(theta_inp, _a_obs, _b_obs, _R_obs, _a_obs_vel, _b_obs_vel)
+        grad[:] = np.array(_grad)
+    return np.array(cbf_extended_moving_obstacles(theta_inp, _a_obs, _b_obs, _R_obs, _a_obs_vel, _b_obs_vel))*1.0
 
 
 #### INIT ####
@@ -701,7 +789,7 @@ def run_with_cbf(theta, Mtarget_human_SE3, theta_poses, theta_vels, theta_accels
     a_obstacles, b_obstacles, R_obstacles = combine_obs_compatible(copied_obstacles)
     cbf_wrapper = lambda x, grad: nlopt_c_cbf(x, grad, a_obstacles.copy(), b_obstacles.copy(), R_obstacles.copy())
     # Add CBF constraints
-    opt.add_inequality_constraint(cbf_wrapper, 1e-2)
+    opt.add_inequality_constraint(cbf_wrapper, 1e-6)
     
     # Run optimization
     opt.set_xtol_rel(XTOL)
@@ -716,6 +804,87 @@ def run_with_cbf(theta, Mtarget_human_SE3, theta_poses, theta_vels, theta_accels
     
     # Return updated state
     return xt, theta_new_poses, theta_new_vels, theta_new_accels, Cposes, result
+
+
+def run_with_cbf_moving(theta, Mtarget_human_SE3, theta_poses, theta_vels, theta_accels, Cposes, 
+                       XTOL=1e-6, MAXEVAL=100, obstacles_dict=None, obstacles_vel_dict=None, dt=0.01):
+    """Run IK with Control Barrier Function constraints for MOVING obstacle avoidance
+    
+    This version accounts for obstacle velocities in the CBF constraint:
+    ḣ = ∇h^T (J_p q̇ - ṗ_obs) + class_K(h) ≥ 0
+    
+    Args:
+        theta: Initial joint positions
+        Mtarget_human_SE3: Target pose
+        theta_poses, theta_vels, theta_accels: State history
+        Cposes: Current end-effector position
+        XTOL: Tolerance for optimization
+        MAXEVAL: Maximum evaluations
+        obstacles_dict: Dictionary of obstacles (positions)
+        obstacles_vel_dict: Dictionary of obstacle velocities
+        dt: Time step for numerical differentiation (if needed)
+        
+    Returns:
+        Updated joint positions and states
+    """
+    if obstacles_dict is None or len(obstacles_dict) == 0:
+        # If no obstacles, use regular IK
+        return run(theta, Mtarget_human_SE3, theta_poses, theta_vels, theta_accels, Cposes, XTOL, MAXEVAL)
+    
+    # If no velocity information provided, fall back to static CBF
+    if obstacles_vel_dict is None or len(obstacles_vel_dict) == 0:
+        return run_with_cbf(theta, Mtarget_human_SE3, theta_poses, theta_vels, theta_accels, Cposes, 
+                           XTOL, MAXEVAL, obstacles_dict, dt)
+    
+    # Objective function wrapper
+    OBJ_wrapper = lambda x, grad: nlopt_obj(x, grad, forward_kinematix_all, 
+                                           Mtarget_human_SE3, theta_poses, 
+                                           theta_vels, theta_accels, Cposes)
+    
+    # Manipulability constraint wrapper
+    CKS_wrapper = lambda x, grad: nlopt_c_ks(x, grad)
+    
+    # Setup NLopt optimizer
+    opt = nlopt.opt(nlopt.LD_SLSQP, 7)
+    opt.set_min_objective(OBJ_wrapper)
+    opt.set_lower_bounds(q_lower_limit[0:7])
+    opt.set_upper_bounds(q_upper_limit[0:7])
+    
+    # Add manipulability constraint
+    opt.add_inequality_constraint(CKS_wrapper, 1e-4)
+    
+    # Prepare obstacle data including velocities
+    copied_obstacles = obstacles_dict.copy()
+    copied_obstacles_vel = obstacles_vel_dict.copy()
+    
+    # Extract obstacle positions and velocities
+    a_obstacles, b_obstacles, R_obstacles = combine_obs_compatible(copied_obstacles)
+    a_obstacles_vel, b_obstacles_vel, _ = combine_obs_compatible(copied_obstacles_vel)
+    
+    # CBF wrapper for moving obstacles
+    cbf_moving_wrapper = lambda x, grad: nlopt_c_cbf_moving(
+        x, grad, 
+        a_obstacles.copy(), b_obstacles.copy(), R_obstacles.copy(),
+        a_obstacles_vel.copy(), b_obstacles_vel.copy()
+    )
+    
+    # Add moving CBF constraints
+    opt.add_inequality_constraint(cbf_moving_wrapper, 1e-5)
+    
+    # Run optimization
+    opt.set_xtol_rel(XTOL)
+    opt.set_maxeval(MAXEVAL)
+    xt = opt.optimize(theta)
+    result = opt.last_optimize_result()
+    
+    # Update states
+    (theta_dots, theta_ddots, theta_dddots), (theta_new_poses, theta_new_vels, theta_new_accels) = \
+        call_derivators(theta_poses, theta_vels, theta_accels, xt)
+    Cposes = calc_Cposes(xt)
+    
+    # Return updated state
+    return xt, theta_new_poses, theta_new_vels, theta_new_accels, Cposes, result
+
 '''
 ### Lets go with augmented lagrangian
 from jaxopt import ScipyBoundedMinimize
@@ -739,7 +908,7 @@ def cost_fn(theta, theta_poses, theta_vels, theta_accels, Cposes, Mtarget_SE3):
 @jax.jit
 def cost_with_penalty(theta,args):
     theta_poses, theta_vels, theta_accels, Cposes, Mtarget_SE3 = args
-    penalty_weight = 1e-2
+    penalty_weight = 1e-4
     base_cost = cost_fn(theta, theta_poses, theta_vels, theta_accels, Cposes, Mtarget_SE3)
     pen = penalty_term(theta, theta_poses)
     return base_cost + penalty_weight * pen
