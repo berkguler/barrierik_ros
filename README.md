@@ -27,7 +27,7 @@ roslaunch ros_tcp_endpoint endpoint.launch
 roslaunch bik_pkg ik.launch
 ```
 
-5. Run the Unity project on the host machine.
+5. Run the [Unity Project](https://github.com/berkguler/barrierik_unity). on the host machine. 
 
 Notes:
 - Use ROS-TCP endpoint port `10000` in Unity.
@@ -39,7 +39,7 @@ Notes:
 
 ## `ik.launch` Arguments
 
-The launch file is [`src/bik_pkg/launch/ik.launch`](/Users/berkguler/Nextcloud/Codes/CBF/OPENSOURCE/barrierik_ros/src/bik_pkg/launch/ik.launch).
+The launch file is [`src/bik_pkg/launch/ik.launch`](/barrierik_ros/src/bik_pkg/launch/ik.launch).
 
 | Argument | Default | Description | Allowed values |
 |---|---|---|---|
